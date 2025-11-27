@@ -1,5 +1,4 @@
 // --- Honoris Legal Server (Backend) ---
-// Este archivo corre en el servidor y protege tus claves secretas.
 // Ejecutar con: node server.js
 
 import 'dotenv/config';
@@ -9,7 +8,8 @@ import fetch from 'node-fetch';
 
 // Importaciones modernas de Firebase Admin
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+// CORRECCIÓN CLAVE: Importamos FieldValue para usarlo directamente.
+import { getFirestore, FieldValue } from 'firebase-admin/firestore'; 
 
 import fs from 'fs';
 import path from 'path';
@@ -19,7 +19,6 @@ import { fileURLToPath } from 'url';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Permitir que tu frontend se comunique con este servidor (CORS)
 app.use(cors());
 app.use(express.json());
 
@@ -62,11 +61,9 @@ const API_MODEL = 'gemini-2.5-flash';
 const API_KEY = process.env.GEMINI_API_KEY;
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent?key=${API_KEY}`;
 
-// --- SYSTEM PROMPT (Tu cerebro legal) ---
+// --- SYSTEM PROMPT ---
 const SYSTEM_INSTRUCTION_TEXT = `
 Actúa como un experto penalista y asesor legal en Costa Rica para "IndexLegal". Analiza el texto y clasifícalo.
-
-OBJETIVO: Identificar si el texto constituye una infracción a las leyes de Costa Rica (Penal, Informática, Derechos de Autor, Civil).
 
 REGLAS DE CLASIFICACIÓN:
 1. DELITOS GRAVES Y SEXUALES (C.P. Art 110+, 156+): Homicidio, agresión, abuso sexual, pornografía infantil.
@@ -85,7 +82,6 @@ OUTPUT FORMAT (JSON):
   "Penalidad_Estimada": "Sanción asociada.",
   "Detalles_Deteccion": "Explicación jurídica."
 }
-
 Si es NEUTRAL, usa "NO INFRACCIÓN". SOLO JSON.
 `;
 
@@ -109,10 +105,7 @@ async function analyzeWithGemini(text) {
       body: JSON.stringify(payload),
     });
 
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Gemini API Error: ${response.status} - ${errText}`);
-    }
+    if (!response.ok) throw new Error(`Gemini API Error: ${response.statusText}`);
     
     const jsonResponse = await response.json();
     if (jsonResponse.promptFeedback?.blockReason) throw new Error("Bloqueado por seguridad.");
@@ -131,36 +124,37 @@ app.post('/api/analyze', async (req, res) => {
 
         console.log(`[SOLICITUD] Analizando: "${text.substring(0, 30)}..."`);
         
-        // 1. Analizar con Gemini
+        // 1. Analizar
         const result = await analyzeWithGemini(text);
 
-        // 2. Guardar en Firebase (Si está activo)
+        // 2. Guardar (si DB existe)
+        // Usamos .then() y .catch() para que el servidor NO espere a que termine de guardar
         if (db) {
-            await db.collection('legal_analysis_logs').add({
+            db.collection('legal_analysis_logs').add({
                 ...result,
-                // CORRECCIÓN AQUÍ: Usar FieldValue directamente, no admin.firestore.FieldValue
-                timestamp: FieldValue.serverTimestamp(),
+                timestamp: FieldValue.serverTimestamp(), // CORRECCIÓN: Usamos FieldValue directamente
                 searchDate: new Date().toISOString(),
                 source: 'web-indexlegal'
+            }).then(() => {
+                console.log("[DB] Guardado exitoso.");
+            }).catch(err => {
+                console.error("[DB ERROR - PERO CONTINUAMOS] No se pudo guardar:", err.message);
             });
-            console.log("[DB] Guardado en Firestore.");
         }
 
-        // 3. Responder al Frontend
+        // 3. Responder INMEDIATAMENTE al usuario con el resultado
         res.json(result);
 
     } catch (error) {
-        console.error("[ERROR]", error.message);
+        console.error("[ERROR SERVIDOR]", error.message);
         res.status(500).json({ error: "Error procesando la solicitud legal." });
     }
 });
 
-// Servir archivos estáticos (El Frontend)
+// Servir archivos estáticos
 app.use(express.static('public'));
 
-// Iniciar servidor
 app.listen(PORT, () => {
     console.log(`\n--- SERVIDOR HONORIS ACTIVO ---`);
     console.log(`Escuchando en: http://localhost:${PORT}`);
-    console.log(`Listo para recibir consultas de IndexLegal.\n`);
 });
