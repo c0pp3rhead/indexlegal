@@ -74,7 +74,7 @@
             cursor: pointer;
         }
 
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .cursor-blink { animation: blink 1s step-end infinite; }
     </style>
 </head>
@@ -86,15 +86,15 @@
         const { useState, useEffect, useRef } = React;
         const { createRoot } = ReactDOM;
 
-        // --- ÍCONOS SVG INTEGRADOS ---
+        // --- ÍCONOS SVG INTEGRADOS (SOLUCIÓN DEFINITIVA) ---
         const SVGIcon = ({ size = 24, color = 'currentColor', d, className, ...props }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
                 <path d={d} />
             </svg>
         );
         
+        // Mapeo de Íconos
         const Icons = {
-            Mic: (props) => <SVGIcon d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v4 M8 23h8" {...props} />,
             Send: (props) => <SVGIcon d="M22 2 11 13 M22 2l-7 20-4-9-9-4 20-7z" {...props} />,
             Shield: (props) => <SVGIcon d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" {...props} />,
             Alert: (props) => <SVGIcon d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z M12 9v4 M12 17h.01" {...props} />,
@@ -111,7 +111,6 @@
             const [result, setResult] = useState(null);
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState(null);
-            const [recording, setRecording] = useState(false);
             const [bootText, setBootText] = useState('');
 
             useEffect(() => {
@@ -174,53 +173,6 @@
                 }
             };
 
-            const toggleRecord = () => {
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) {
-                    return setError("Tu navegador no soporta dictado por voz.");
-                }
-                
-                if (window.location.protocol !== 'https:') {
-                     if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                        return setError("MICROPHONE_ACCESS_BLOCKED: HTTPS_REQUIRED");
-                     }
-                }
-
-                const rec = new SpeechRecognition();
-                rec.lang = 'es-ES'; 
-                rec.continuous = false;
-                rec.interimResults = false;
-
-                rec.onstart = () => {
-                    setRecording(true);
-                    setError(null);
-                };
-
-                rec.onresult = (e) => {
-                    const text = e.results[0][0].transcript;
-                    setInput(text);
-                    if (text) analyze(text);
-                };
-
-                rec.onerror = (e) => {
-                    console.error("Speech error:", e.error);
-                    setRecording(false);
-                    if (e.error !== 'no-speech') {
-                         setError("MIC_ERROR: " + e.error);
-                    }
-                };
-
-                rec.onend = () => {
-                    setRecording(false);
-                };
-                
-                try {
-                    rec.start();
-                } catch (e) {
-                    setError("Error al iniciar micrófono.");
-                }
-            };
-
             const getSeverityStyle = (cat) => {
                 if (!cat) return 'border-green-500 text-green-500';
                 const c = cat.toLowerCase();
@@ -264,22 +216,15 @@
                         <textarea 
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder="Ingrese datos del caso o inicie enlace de voz..."
+                            placeholder="Ingrese datos del caso..."
                             className="w-full bg-transparent text-[#00FF41] p-6 pt-8 outline-none min-h-[150px] text-xl font-mono border-none focus:ring-0 resize-none placeholder-green-900"
                         />
                         
                         <div className="flex justify-end gap-3 p-3 border-t border-[#003B00] bg-black">
                             <button 
-                                onClick={toggleRecord}
-                                className={`p-3 border border-[#00FF41] hover:bg-[#00FF41] hover:text-black transition-all rounded-none ${recording ? 'bg-red-900 text-red-500 animate-pulse' : ''}`}
-                                title="Activar Micrófono"
-                            >
-                                <Icons.Mic className="w-5 h-5" />
-                            </button>
-                            <button 
                                 onClick={() => analyze()} 
                                 disabled={loading || !input}
-                                className="matrix-btn px-8 py-2 font-bold flex items-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                className="matrix-btn px-8 py-2 font-bold flex items-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed w-full justify-center sm:w-auto"
                             >
                                 {loading ? <span className="animate-spin">/</span> : <Icons.Cpu className="w-5 h-5" />}
                                 {loading ? "PROCESSING..." : "EXECUTE"}
