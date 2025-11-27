@@ -74,7 +74,7 @@
             cursor: pointer;
         }
 
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .cursor-blink { animation: blink 1s step-end infinite; }
     </style>
 </head>
@@ -86,14 +86,13 @@
         const { useState, useEffect, useRef } = React;
         const { createRoot } = ReactDOM;
 
-        // --- ÍCONOS SVG INTEGRADOS (SOLUCIÓN DEFINITIVA) ---
+        // --- ÍCONOS SVG INTEGRADOS ---
         const SVGIcon = ({ size = 24, color = 'currentColor', d, className, ...props }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
                 <path d={d} />
             </svg>
         );
         
-        // Mapeo de Íconos
         const Icons = {
             Mic: (props) => <SVGIcon d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v4 M8 23h8" {...props} />,
             Send: (props) => <SVGIcon d="M22 2 11 13 M22 2l-7 20-4-9-9-4 20-7z" {...props} />,
@@ -157,7 +156,7 @@
                 setResult(null);
 
                 try {
-                    // CORRECCIÓN CRÍTICA: Usar ruta relativa para que funcione en la web real
+                    // RUTA RELATIVA CORRECTA
                     const response = await fetch('/api/analyze', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -176,20 +175,20 @@
             };
 
             const toggleRecord = () => {
-                // 1. Check for API support
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 if (!SpeechRecognition) {
-                    return setError("Tu navegador no soporta dictado por voz. Intenta usar Chrome o Safari actualizado.");
+                    return setError("Tu navegador no soporta dictado por voz.");
                 }
                 
-                // 2. HTTPS Check (already present, but good to keep)
-                if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                     return setError("MICROPHONE_ACCESS_BLOCKED: HTTPS_REQUIRED");
+                if (window.location.protocol !== 'https:') {
+                     if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                        return setError("MICROPHONE_ACCESS_BLOCKED: HTTPS_REQUIRED");
+                     }
                 }
 
                 const rec = new SpeechRecognition();
-                rec.lang = 'es-ES'; // Changed to generic Spanish for better compatibility
-                rec.continuous = false; // Stop after one sentence
+                rec.lang = 'es-ES'; 
+                rec.continuous = false;
                 rec.interimResults = false;
 
                 rec.onstart = () => {
@@ -205,15 +204,10 @@
 
                 rec.onerror = (e) => {
                     console.error("Speech error:", e.error);
-                    if (e.error === 'not-allowed' || e.error === 'permission-denied') {
-                        setError("PERMISO DENEGADO: Debes permitir el acceso al micrófono en tu navegador.");
-                    } else if (e.error === 'no-speech') {
-                        // Ignore "no speech" errors, just stop recording
-                        setRecording(false);
-                    } else {
-                        setError("MIC_ERROR: " + e.error);
-                    }
                     setRecording(false);
+                    if (e.error !== 'no-speech') {
+                         setError("MIC_ERROR: " + e.error);
+                    }
                 };
 
                 rec.onend = () => {
@@ -223,31 +217,8 @@
                 try {
                     rec.start();
                 } catch (e) {
-                    setError("Error al iniciar micrófono. Refresca la página.");
+                    setError("Error al iniciar micrófono.");
                 }
-            };
-
-                const rec = new SpeechRecognition();
-                // ACTUALIZACIÓN: Usar 'es-ES' (Español estándar) para mayor compatibilidad en dispositivos
-                rec.lang = 'es-ES'; 
-                rec.onresult = (e) => {
-                    const text = e.results[0][0].transcript;
-                    setInput(text);
-                    if (text) analyze(text);
-                };
-                rec.onerror = (e) => {
-                    console.error("Speech error:", e.error);
-                    if (e.error === 'not-allowed') {
-                        setError("MIC_PERMISSION_DENIED");
-                    } else {
-                        setError("MIC_ERROR: " + e.error);
-                    }
-                    setRecording(false);
-                };
-                rec.onend = () => setRecording(false);
-                
-                rec.start();
-                setRecording(true);
             };
 
             const getSeverityStyle = (cat) => {
