@@ -1,0 +1,4 @@
+node_modules
+.env
+honoris-key.json
+.DS_Store

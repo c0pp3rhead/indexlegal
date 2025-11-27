@@ -1,0 +1,19 @@
+{
+  "name": "honoris-terminal",
+  "version": "1.0.0",
+  "description": "Analizador legal para la terminal",
+  "main": "HonorisTerminal.js",
+  "type": "module",
+  "scripts": {
+    "start": "node HonorisTerminal.js"
+  },
+  "author": "Cristian Morales",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "firebase-admin": "^13.6.0",
+    "node-fetch": "^3.3.2"
+  }
+}

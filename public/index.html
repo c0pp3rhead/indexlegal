@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SYSTEM_ROOT // INDEX_LEGAL</title>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Fuente Hacker -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --matrix-green: #00FF41;
+            --matrix-dark: #0D0208;
+            --matrix-dim: #003B00;
+        }
+
+        body { 
+            margin: 0; 
+            font-family: 'Share Tech Mono', 'Courier New', monospace; 
+            background-color: black; 
+            color: var(--matrix-green);
+            overflow-x: hidden;
+            height: 100vh;
+        }
+
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .matrix-glow {
+            text-shadow: 0 0 5px var(--matrix-green), 0 0 10px var(--matrix-green);
+        }
+
+        .matrix-border {
+            border: 1px solid var(--matrix-green);
+            box-shadow: 0 0 8px rgba(0, 255, 65, 0.3);
+        }
+
+        .matrix-btn {
+            background-color: var(--matrix-dim);
+            border: 1px solid var(--matrix-green);
+            color: var(--matrix-green);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .matrix-btn:hover:not(:disabled) {
+            background-color: var(--matrix-green);
+            color: black;
+            box-shadow: 0 0 20px var(--matrix-green);
+            cursor: pointer;
+        }
+
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .cursor-blink { animation: blink 1s step-end infinite; }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div id="root" class="relative z-10 w-full h-full overflow-auto"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const { createRoot } = ReactDOM;
+
+        // --- ÍCONOS SVG INTEGRADOS (SOLUCIÓN DEFINITIVA) ---
+        const SVGIcon = ({ size = 24, color = 'currentColor', d, className, ...props }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+                <path d={d} />
+            </svg>
+        );
+        
+        // Mapeo de Íconos
+        const Icons = {
+            Mic: (props) => <SVGIcon d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v4 M8 23h8" {...props} />,
+            Send: (props) => <SVGIcon d="M22 2 11 13 M22 2l-7 20-4-9-9-4 20-7z" {...props} />,
+            Shield: (props) => <SVGIcon d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" {...props} />,
+            Alert: (props) => <SVGIcon d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z M12 9v4 M12 17h.01" {...props} />,
+            Terminal: (props) => <SVGIcon d="m4 17 6-6-6-6 M12 19h8" {...props} />,
+            Cpu: (props) => <SVGIcon d="M18 10h-1a3 3 0 00-3-3v-1 M6 10h1a3 3 0 013-3v-1 M18 14h-1a3 3 0 01-3 3v1 M6 14h1a3 3 0 003 3v1 M12 2v2M12 20v2M20 12h2M2 12h2M14 14h-4v-4h4v4z" {...props} />,
+            Search: (props) => <SVGIcon d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" {...props} />,
+            Activity: (props) => <SVGIcon d="M22 12h-4l-3 9L9 3l-6 9H2" {...props} />,
+            BookOpen: (props) => <SVGIcon d="M2 13h6 M2 17h6 M16 13h6 M16 17h6 M10 4v16a2 2 0 002 2h0a2 2 0 002-2V4" {...props} />,
+            Lock: (props) => <SVGIcon d="M12 11V6a4 4 0 00-8 0v5 M3 13h18a1 1 0 011 1v6a2 2 0 01-2 2H4a2 2 0 01-2-2v-6a1 1 0 011-1z" {...props} />
+        };
+
+        const App = () => {
+            const [input, setInput] = useState('');
+            const [result, setResult] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [recording, setRecording] = useState(false);
+            const [bootText, setBootText] = useState('');
+
+            useEffect(() => {
+                const lines = [
+                    "INITIALIZING INDEX_LEGAL KERNEL...",
+                    "LOADING NEURAL MODULES...",
+                    "CONNECTING TO MAINFRAME...",
+                    "ACCESS GRANTED."
+                ];
+                let currentLine = 0;
+                let currentChar = 0;
+                
+                const interval = setInterval(() => {
+                    if (currentLine < lines.length) {
+                        if (currentChar < lines[currentLine].length) {
+                            setBootText(prev => {
+                                const allLines = prev.split('\n');
+                                allLines[currentLine] = lines[currentLine].substring(0, currentChar + 1);
+                                return allLines.join('\n');
+                            });
+                            currentChar++;
+                        } else {
+                            setBootText(prev => prev + '\n');
+                            currentLine++;
+                            currentChar = 0;
+                        }
+                    } else {
+                        clearInterval(interval);
+                    }
+                }, 30);
+
+                return () => clearInterval(interval);
+            }, []);
+
+            const analyze = async () => {
+                if (!input.trim()) return;
+                setLoading(true);
+                setError(null);
+                setResult(null);
+
+                try {
+                    const response = await fetch('http://localhost:3000/api/analyze', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: input })
+                    });
+
+                    if (!response.ok) throw new Error("CONNECTION_REFUSED: SERVER_ERROR");
+                    const data = await response.json();
+                    setResult(data);
+                } catch (err) {
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const toggleRecord = () => {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) return setError("AUDIO_INPUT_DEVICE_NOT_FOUND");
+                
+                const rec = new SpeechRecognition();
+                rec.lang = 'es-CR';
+                rec.onresult = (e) => {
+                    const text = e.results[0][0].transcript;
+                    setInput(text);
+                };
+                rec.start();
+            };
+
+            const getSeverityClass = (cat) => {
+                if (!cat) return 'border-green-500 text-green-500';
+                const c = cat.toLowerCase();
+                if (c.includes('calumnia') || c.includes('sexual') || c.includes('grave')) 
+                    return 'border-red-600 text-red-500 shadow-[0_0_15px_red]';
+                if (c.includes('amenaza') || c.includes('delito')) 
+                    return 'border-yellow-500 text-yellow-500';
+                return 'border-[#00FF41] text-[#00FF41]';
+            };
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto flex flex-col gap-6">
+                    
+                    {/* Header Terminal */}
+                    <div className="w-full border-b border-[#00FF41] pb-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs opacity-70">root@indexlegal:~# ./run_analysis.sh</span>
+                            <span className="text-xs animate-pulse">● LIVE</span>
+                        </div>
+                        <div className="font-mono text-sm whitespace-pre-line min-h-[80px] opacity-80 mb-4">
+                            {bootText}<span className="cursor-blink">_</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <Icons.Terminal className="w-12 h-12 text-[#00FF41]" />
+                            <div>
+                                <h1 className="text-4xl md:text-6xl font-bold matrix-glow tracking-tighter">
+                                    INDEX_LEGAL
+                                </h1>
+                                <p className="text-sm tracking-widest opacity-70">NEURAL PENAL SYSTEM v2.4</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Input Area */}
+                    <div className="matrix-border bg-black/80 p-1 relative">
+                        <div className="absolute top-0 left-0 bg-[#00FF41] text-black text-xs px-2 font-bold uppercase">
+                            Input_Stream
+                        </div>
+                        <textarea 
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder="Ingrese datos del caso o inicie enlace de voz..."
+                            className="w-full bg-transparent text-[#00FF41] p-6 pt-8 outline-none min-h-[150px] text-xl font-mono border-none focus:ring-0 resize-none placeholder-green-900"
+                        />
+                        
+                        <div className="flex justify-end gap-3 p-3 border-t border-[#003B00] bg-black">
+                            <button 
+                                onClick={toggleRecord}
+                                className="p-3 border border-[#00FF41] hover:bg-[#00FF41] hover:text-black transition-all rounded-none"
+                                title="Activar Micrófono"
+                            >
+                                <Icons.Mic />
+                            </button>
+                            <button 
+                                onClick={analyze}
+                                disabled={loading || !input}
+                                className="matrix-btn px-8 py-2 font-bold flex items-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                {loading ? <span className="animate-spin">/</span> : <Icons.Cpu className="w-5 h-5" />}
+                                {loading ? "PROCESSING..." : "EXECUTE"}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Error */}
+                    {error && (
+                        <div className="border border-red-500 bg-red-900/20 p-4 text-red-500 font-bold flex items-center gap-3">
+                            <Icons.Alert /> 
+                            <span>[SYSTEM_ERROR]: {error}</span>
+                        </div>
+                    )}
+
+                    {/* Resultados */}
+                    {result && (
+                        <div className={`matrix-border bg-black p-6 mt-4 animate-fade-in ${getSeverityClass(result.Categoria_Legal)}`}>
+                            <div className="flex justify-between items-end border-b border-current pb-2 mb-4">
+                                <h2 className="text-3xl font-bold uppercase">{result.Categoria_Legal}</h2>
+                                <span className="text-xs opacity-50">ID: {Math.floor(Math.random() * 100000)}</span>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-8">
+                                <div>
+                                    <label className="text-xs opacity-60 block mb-1">> INPUT_DATA</label>
+                                    <p className="text-lg italic opacity-90 border-l-2 border-current pl-3 mb-4">
+                                        "{result.Frase_Original}"
+                                    </p>
+                                    
+                                    <label className="text-xs opacity-60 block mb-1">> LEGAL_CODE</label>
+                                    <div className="border border-current p-2 mb-4">
+                                        <p className="text-xl font-bold flex items-center gap-2">
+                                            <Icons.BookOpen className="w-5 h-5" /> {result.Articulo_CR}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs opacity-60 block mb-1">> PENALTY_ESTIMATE</label>
+                                    <div className="border border-current p-2 mb-4 bg-[#001000]">
+                                        <p className="text-lg font-bold flex items-center gap-2">
+                                            <Icons.Alert className="w-5 h-5" /> {result.Penalidad_Estimada}
+                                        </p>
+                                    </div>
+
+                                    <label className="text-xs opacity-60 block mb-1">> ANALYSIS_LOG</label>
+                                    <p className="opacity-90 font-mono text-sm leading-relaxed">
+                                        {result.Detalles_Deteccion}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="text-center text-[10px] opacity-30 mt-8">
+                        SECURE CONNECTION // ENCRYPTED // INDEX_LEGAL SYSTEM
+                    </div>
+                </div>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
