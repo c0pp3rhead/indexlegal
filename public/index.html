@@ -86,13 +86,14 @@
         const { useState, useEffect, useRef } = React;
         const { createRoot } = ReactDOM;
 
-        // --- ÍCONOS SVG INTEGRADOS ---
+        // --- ÍCONOS SVG INTEGRADOS (SOLUCIÓN DEFINITIVA) ---
         const SVGIcon = ({ size = 24, color = 'currentColor', d, className, ...props }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
                 <path d={d} />
             </svg>
         );
         
+        // Mapeo de Íconos
         const Icons = {
             Mic: (props) => <SVGIcon d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v4 M8 23h8" {...props} />,
             Send: (props) => <SVGIcon d="M22 2 11 13 M22 2l-7 20-4-9-9-4 20-7z" {...props} />,
@@ -146,9 +147,7 @@
                 return () => clearInterval(interval);
             }, []);
 
-            // CORRECCIÓN: La función ahora acepta un argumento opcional 'textOverride'
             const analyze = async (textOverride) => {
-                // Si se pasa texto (del micrófono), úsalo. Si no, usa el estado 'input'.
                 const textToSend = typeof textOverride === 'string' ? textOverride : input;
 
                 if (!textToSend || !textToSend.trim()) return;
@@ -158,10 +157,11 @@
                 setResult(null);
 
                 try {
+                    // CORRECCIÓN CRÍTICA: Usar ruta relativa para que funcione en la web real
                     const response = await fetch('/api/analyze', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: textToSend }) // Usamos la variable corregida
+                        body: JSON.stringify({ text: textToSend })
                     });
 
                     if (!response.ok) throw new Error("CONNECTION_REFUSED: SERVER_ERROR");
@@ -186,21 +186,34 @@
                 }
 
                 const rec = new SpeechRecognition();
-                rec.lang = 'es-CR';
+                // ACTUALIZACIÓN: Usar 'es-ES' (Español estándar) para mayor compatibilidad en dispositivos
+                rec.lang = 'es-ES'; 
                 rec.onresult = (e) => {
                     const text = e.results[0][0].transcript;
-                    setInput(text); // Actualiza visualmente
-                    if (text) analyze(text); // CORRECCIÓN: Pasa el texto directamente a analyze
+                    setInput(text);
+                    if (text) analyze(text);
                 };
+                rec.onerror = (e) => {
+                    console.error("Speech error:", e.error);
+                    if (e.error === 'not-allowed') {
+                        setError("MIC_PERMISSION_DENIED");
+                    } else {
+                        setError("MIC_ERROR: " + e.error);
+                    }
+                    setRecording(false);
+                };
+                rec.onend = () => setRecording(false);
+                
                 rec.start();
+                setRecording(true);
             };
 
             const getSeverityStyle = (cat) => {
                 if (!cat) return 'border-green-500 text-green-500';
                 const c = cat.toLowerCase();
-                if (c.includes('calumnia') || c.includes('sexual') || c.includes('grave')) 
+                if (c.includes('calumnia') || c.includes('sexual') || c.includes('grave') || c.includes('amenaza')) 
                     return 'border-red-600 text-red-500 shadow-[0_0_15px_red]';
-                if (c.includes('amenaza') || c.includes('delito')) 
+                if (c.includes('injuria') || c.includes('delito')) 
                     return 'border-yellow-500 text-yellow-500';
                 return 'border-[#00FF41] text-[#00FF41]';
             };
@@ -245,7 +258,7 @@
                         <div className="flex justify-end gap-3 p-3 border-t border-[#003B00] bg-black">
                             <button 
                                 onClick={toggleRecord}
-                                className="p-3 border border-[#00FF41] hover:bg-[#00FF41] hover:text-black transition-all rounded-none"
+                                className={`p-3 border border-[#00FF41] hover:bg-[#00FF41] hover:text-black transition-all rounded-none ${recording ? 'bg-red-900 text-red-500 animate-pulse' : ''}`}
                                 title="Activar Micrófono"
                             >
                                 <Icons.Mic className="w-5 h-5" />

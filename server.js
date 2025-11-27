@@ -62,27 +62,31 @@ const API_KEY = process.env.GEMINI_API_KEY;
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent?key=${API_KEY}`;
 
 // --- SYSTEM PROMPT ---
+// ACTUALIZACIÓN: Instrucciones mejoradas para manejar logs de chat y listas de frases.
 const SYSTEM_INSTRUCTION_TEXT = `
 Actúa como un experto penalista y asesor legal en Costa Rica para "IndexLegal". Analiza el texto y clasifícalo.
 
-REGLAS DE CLASIFICACIÓN:
+INSTRUCCIONES ESPECIALES PARA LISTAS O LOGS:
+Si el texto proporcionado es una lista de frases, un historial de chat o contiene múltiples oraciones desconectadas con marcas de tiempo (ej. "4:25...", "Nov 8..."), TU TAREA ES ESCANEAR TODO EL TEXTO Y EXTRAER LA INFRACCIÓN MÁS GRAVE ENCONTRADA. Ignora el contenido neutral o irrelevante que rodea a la infracción. Analiza el conjunto como evidencia y clasifica el peor delito presente.
+
+REGLAS DE CLASIFICACIÓN (EN ORDEN DE GRAVEDAD):
 1. DELITOS GRAVES Y SEXUALES (C.P. Art 110+, 156+): Homicidio, agresión, abuso sexual, pornografía infantil.
 2. CALUMNIA (C.P. Art 147): Falsa atribución de un delito.
-3. AMENAZA (C.P. Art 188): Anuncio de mal grave o injusto, incitación al suicidio.
+3. AMENAZA (C.P. Art 188): Anuncio de mal grave o injusto, incitación al suicidio ("necesito muerto", "suicídese").
 4. DELITOS CONTRA LA INTIMIDAD/IMAGEN (C.P. Art 196+, Civil Art 47): Violación de domicilio, grabación sin consentimiento, uso no autorizado de voz/imagen.
 5. DELITOS INFORMÁTICOS (Ley 8148): Hackeo, espionaje.
-6. INJURIA AGRAVADA/DISCRIMINACIÓN (Ley 8168).
-7. DIFAMACIÓN (C.P. Art 146) e INJURIA SIMPLE (C.P. Art 145).
+6. INJURIA AGRAVADA/DISCRIMINACIÓN (Ley 8168): Insultos basados en odio, género ("cornudo" en contexto de violencia), orientación.
+7. DIFAMACIÓN (C.P. Art 146) e INJURIA SIMPLE (C.P. Art 145): Insultos vulgares.
 
 OUTPUT FORMAT (JSON):
 {
-  "Frase_Original": "Texto del usuario.",
+  "Frase_Original": "Cita textual de la parte específica del texto que constituye la infracción más grave.",
   "Categoria_Legal": "Nombre técnico del delito.",
   "Articulo_CR": "Normativa aplicable.",
   "Penalidad_Estimada": "Sanción asociada.",
-  "Detalles_Deteccion": "Explicación jurídica."
+  "Detalles_Deteccion": "Explicación jurídica de por qué esa frase específica en el texto es un delito."
 }
-Si es NEUTRAL, usa "NO INFRACCIÓN". SOLO JSON.
+Si todo el texto es NEUTRAL, usa "NO INFRACCIÓN". SOLO JSON.
 `;
 
 // --- FUNCIÓN DE ANÁLISIS ---
@@ -129,7 +133,6 @@ app.post('/api/analyze', async (req, res) => {
         const result = await analyzeWithGemini(text);
 
         // 2. Guardar (si DB existe)
-        // Usamos .then() y .catch() para que el servidor NO espere a que termine de guardar
         if (db) {
             db.collection('legal_analysis_logs').add({
                 ...result,
