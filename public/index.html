@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SYSTEM_ROOT // INDEX_LEGAL</title>
+    <title>SYSTEM_ROOT // INDEX_PENAL</title>
     
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
@@ -74,26 +74,25 @@
             cursor: pointer;
         }
 
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         .cursor-blink { animation: blink 1s step-end infinite; }
     </style>
 </head>
 <body>
     <div class="scanlines"></div>
-    <div id="root" class="relative z-10 w-full h-full overflow-auto"></div>
+    <div id="root" class="relative z-10 h-full"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
         const { createRoot } = ReactDOM;
 
-        // --- ÍCONOS SVG INTEGRADOS (SOLUCIÓN DEFINITIVA) ---
+        // --- ÍCONOS SVG INTEGRADOS ---
         const SVGIcon = ({ size = 24, color = 'currentColor', d, className, ...props }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
                 <path d={d} />
             </svg>
         );
         
-        // Mapeo de Íconos
         const Icons = {
             Mic: (props) => <SVGIcon d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v4 M8 23h8" {...props} />,
             Send: (props) => <SVGIcon d="M22 2 11 13 M22 2l-7 20-4-9-9-4 20-7z" {...props} />,
@@ -112,12 +111,12 @@
             const [result, setResult] = useState(null);
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState(null);
-            const [recording, setRecording] = useState(false);
             const [bootText, setBootText] = useState('');
 
             useEffect(() => {
+                // --- ACTUALIZACIÓN DE TEXTO A "INDEX_PENAL" ---
                 const lines = [
-                    "INITIALIZING INDEX_LEGAL KERNEL...",
+                    "INITIALIZING INDEX_PENAL KERNEL...",
                     "LOADING NEURAL MODULES...",
                     "CONNECTING TO MAINFRAME...",
                     "ACCESS GRANTED."
@@ -164,7 +163,8 @@
                     const data = await response.json();
                     setResult(data);
                 } catch (err) {
-                    setError(err.message);
+                    console.error(err);
+                    setError(err.message || "UNEXPECTED_RUNTIME_FAILURE");
                 } finally {
                     setLoading(false);
                 }
@@ -174,16 +174,23 @@
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 if (!SpeechRecognition) return setError("AUDIO_INPUT_DEVICE_NOT_FOUND");
                 
+                if (window.location.protocol !== 'https:') {
+                    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                         return setError("MICROPHONE_ACCESS_BLOCKED: HTTPS_REQUIRED");
+                    }
+                }
+
                 const rec = new SpeechRecognition();
                 rec.lang = 'es-CR';
                 rec.onresult = (e) => {
                     const text = e.results[0][0].transcript;
                     setInput(text);
+                    if (text) analyze(text);
                 };
                 rec.start();
             };
 
-            const getSeverityClass = (cat) => {
+            const getSeverityStyle = (cat) => {
                 if (!cat) return 'border-green-500 text-green-500';
                 const c = cat.toLowerCase();
                 if (c.includes('calumnia') || c.includes('sexual') || c.includes('grave')) 
@@ -194,24 +201,28 @@
             };
 
             return (
-                <div className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto flex flex-col gap-6">
+                <div className="min-h-screen flex flex-col p-4 md:p-8 max-w-5xl mx-auto gap-6">
                     
                     {/* Header Terminal */}
                     <div className="w-full border-b border-[#00FF41] pb-4">
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs opacity-70">root@indexlegal:~# ./run_analysis.sh</span>
+                            {/* --- ACTUALIZACIÓN DE TEXTO --- */}
+                            <span className="text-xs opacity-70">root@indexpenal:~# ./run_analysis.sh</span>
                             <span className="text-xs animate-pulse">● LIVE</span>
                         </div>
                         <div className="font-mono text-sm whitespace-pre-line min-h-[80px] opacity-80 mb-4">
                             {bootText}<span className="cursor-blink">_</span>
                         </div>
                         <div className="flex items-center gap-4">
-                            <Icons.Terminal className="w-12 h-12 text-[#00FF41]" />
-                            <div>
-                                <h1 className="text-4xl md:text-6xl font-bold matrix-glow tracking-tighter">
-                                    INDEX_LEGAL
-                                </h1>
-                                <p className="text-sm tracking-widest opacity-70">NEURAL PENAL SYSTEM v2.4</p>
+                            {/* --- ACTUALIZACIÓN DE TEXTO Y LOGO --- */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-4xl font-bold text-[#00FF41] matrix-glow">{'>_'}</span>
+                                <div>
+                                    <h1 className="text-4xl md:text-6xl font-bold matrix-glow tracking-tighter">
+                                        INDEX_PENAL
+                                    </h1>
+                                    <p className="text-sm tracking-widest opacity-70">NEURAL PENAL SYSTEM v2.4</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -234,7 +245,7 @@
                                 className="p-3 border border-[#00FF41] hover:bg-[#00FF41] hover:text-black transition-all rounded-none"
                                 title="Activar Micrófono"
                             >
-                                <Icons.Mic />
+                                <Icons.Mic className="w-5 h-5" />
                             </button>
                             <button 
                                 onClick={analyze}
@@ -250,22 +261,22 @@
                     {/* Error */}
                     {error && (
                         <div className="border border-red-500 bg-red-900/20 p-4 text-red-500 font-bold flex items-center gap-3">
-                            <Icons.Alert /> 
+                            <Icons.Alert className="w-5 h-5" /> 
                             <span>[SYSTEM_ERROR]: {error}</span>
                         </div>
                     )}
 
                     {/* Resultados */}
                     {result && (
-                        <div className={`matrix-border bg-black p-6 mt-4 animate-fade-in ${getSeverityClass(result.Categoria_Legal)}`}>
+                        <div className={`matrix-border bg-black p-6 mt-4 animate-fade-in ${getSeverityStyle(result.Categoria_Legal)}`}>
                             <div className="flex justify-between items-end border-b border-current pb-2 mb-4">
                                 <h2 className="text-3xl font-bold uppercase">{result.Categoria_Legal}</h2>
-                                <span className="text-xs opacity-50">ID: {Math.floor(Math.random() * 100000)}</span>
+                                <span className="text-xs opacity-50">PID: {Math.floor(Math.random() * 99999)}</span>
                             </div>
 
                             <div className="grid md:grid-cols-2 gap-8">
                                 <div>
-                                    <label className="text-xs opacity-60 block mb-1">> INPUT_DATA</label>
+                                    <label className="text-xs opacity-60 block mb-1">> INPUT_DATA:</label>
                                     <p className="text-lg italic opacity-90 border-l-2 border-current pl-3 mb-4">
                                         "{result.Frase_Original}"
                                     </p>
@@ -296,7 +307,7 @@
                     )}
                     
                     <div className="text-center text-[10px] opacity-30 mt-8">
-                        SECURE CONNECTION // ENCRYPTED // INDEX_LEGAL SYSTEM
+                        SECURE CONNECTION // ENCRYPTED // INDEX_PENAL SYSTEM
                     </div>
                 </div>
             );
