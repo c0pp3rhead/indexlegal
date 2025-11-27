@@ -74,13 +74,13 @@
             cursor: pointer;
         }
 
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .cursor-blink { animation: blink 1s step-end infinite; }
     </style>
 </head>
 <body>
     <div class="scanlines"></div>
-    <div id="root" class="relative z-10 h-full"></div>
+    <div id="root" class="relative z-10 w-full h-full overflow-auto"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
@@ -111,10 +111,10 @@
             const [result, setResult] = useState(null);
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState(null);
+            const [recording, setRecording] = useState(false);
             const [bootText, setBootText] = useState('');
 
             useEffect(() => {
-                // --- ACTUALIZACIÓN DE TEXTO A "INDEX_PENAL" ---
                 const lines = [
                     "INITIALIZING INDEX_PENAL KERNEL...",
                     "LOADING NEURAL MODULES...",
@@ -146,8 +146,13 @@
                 return () => clearInterval(interval);
             }, []);
 
-            const analyze = async () => {
-                if (!input.trim()) return;
+            // CORRECCIÓN: La función ahora acepta un argumento opcional 'textOverride'
+            const analyze = async (textOverride) => {
+                // Si se pasa texto (del micrófono), úsalo. Si no, usa el estado 'input'.
+                const textToSend = typeof textOverride === 'string' ? textOverride : input;
+
+                if (!textToSend || !textToSend.trim()) return;
+                
                 setLoading(true);
                 setError(null);
                 setResult(null);
@@ -156,7 +161,7 @@
                     const response = await fetch('/api/analyze', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: input })
+                        body: JSON.stringify({ text: textToSend }) // Usamos la variable corregida
                     });
 
                     if (!response.ok) throw new Error("CONNECTION_REFUSED: SERVER_ERROR");
@@ -184,8 +189,8 @@
                 rec.lang = 'es-CR';
                 rec.onresult = (e) => {
                     const text = e.results[0][0].transcript;
-                    setInput(text);
-                    if (text) analyze(text);
+                    setInput(text); // Actualiza visualmente
+                    if (text) analyze(text); // CORRECCIÓN: Pasa el texto directamente a analyze
                 };
                 rec.start();
             };
@@ -206,7 +211,6 @@
                     {/* Header Terminal */}
                     <div className="w-full border-b border-[#00FF41] pb-4">
                         <div className="flex items-center justify-between mb-2">
-                            {/* --- ACTUALIZACIÓN DE TEXTO --- */}
                             <span className="text-xs opacity-70">root@indexpenal:~# ./run_analysis.sh</span>
                             <span className="text-xs animate-pulse">● LIVE</span>
                         </div>
@@ -214,7 +218,6 @@
                             {bootText}<span className="cursor-blink">_</span>
                         </div>
                         <div className="flex items-center gap-4">
-                            {/* --- ACTUALIZACIÓN DE TEXTO Y LOGO --- */}
                             <div className="flex items-center gap-2">
                                 <span className="text-4xl font-bold text-[#00FF41] matrix-glow">{'>_'}</span>
                                 <div>
@@ -248,7 +251,7 @@
                                 <Icons.Mic className="w-5 h-5" />
                             </button>
                             <button 
-                                onClick={analyze}
+                                onClick={() => analyze()} 
                                 disabled={loading || !input}
                                 className="matrix-btn px-8 py-2 font-bold flex items-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                             >

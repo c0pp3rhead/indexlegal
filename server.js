@@ -99,8 +99,8 @@ async function analyzeWithGemini(text) {
       ]
     };
 
-    const response = await fetch(API_URL, {
-      method: 'POST',
+     await fetch(API_URL, {
+      methodconst response =: 'POST',
       headers: { 'Content-Type': `application/json` },
       body: JSON.stringify(payload),
     });
