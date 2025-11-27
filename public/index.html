@@ -176,14 +176,56 @@
             };
 
             const toggleRecord = () => {
+                // 1. Check for API support
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SpeechRecognition) return setError("AUDIO_INPUT_DEVICE_NOT_FOUND");
-                
-                if (window.location.protocol !== 'https:') {
-                    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                         return setError("MICROPHONE_ACCESS_BLOCKED: HTTPS_REQUIRED");
-                    }
+                if (!SpeechRecognition) {
+                    return setError("Tu navegador no soporta dictado por voz. Intenta usar Chrome o Safari actualizado.");
                 }
+                
+                // 2. HTTPS Check (already present, but good to keep)
+                if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                     return setError("MICROPHONE_ACCESS_BLOCKED: HTTPS_REQUIRED");
+                }
+
+                const rec = new SpeechRecognition();
+                rec.lang = 'es-ES'; // Changed to generic Spanish for better compatibility
+                rec.continuous = false; // Stop after one sentence
+                rec.interimResults = false;
+
+                rec.onstart = () => {
+                    setRecording(true);
+                    setError(null);
+                };
+
+                rec.onresult = (e) => {
+                    const text = e.results[0][0].transcript;
+                    setInput(text);
+                    if (text) analyze(text);
+                };
+
+                rec.onerror = (e) => {
+                    console.error("Speech error:", e.error);
+                    if (e.error === 'not-allowed' || e.error === 'permission-denied') {
+                        setError("PERMISO DENEGADO: Debes permitir el acceso al micrófono en tu navegador.");
+                    } else if (e.error === 'no-speech') {
+                        // Ignore "no speech" errors, just stop recording
+                        setRecording(false);
+                    } else {
+                        setError("MIC_ERROR: " + e.error);
+                    }
+                    setRecording(false);
+                };
+
+                rec.onend = () => {
+                    setRecording(false);
+                };
+                
+                try {
+                    rec.start();
+                } catch (e) {
+                    setError("Error al iniciar micrófono. Refresca la página.");
+                }
+            };
 
                 const rec = new SpeechRecognition();
                 // ACTUALIZACIÓN: Usar 'es-ES' (Español estándar) para mayor compatibilidad en dispositivos
