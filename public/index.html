@@ -86,7 +86,7 @@
         const { useState, useEffect, useRef } = React;
         const { createRoot } = ReactDOM;
 
-        // --- ÍCONOS SVG INTEGRADOS (SOLUCIÓN DEFINITIVA) ---
+        // --- ÍCONOS SVG INTEGRADOS ---
         const SVGIcon = ({ size = 24, color = 'currentColor', d, className, ...props }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
                 <path d={d} />
@@ -95,6 +95,7 @@
         
         // Mapeo de Íconos
         const Icons = {
+            // Eliminado Micrófono
             Send: (props) => <SVGIcon d="M22 2 11 13 M22 2l-7 20-4-9-9-4 20-7z" {...props} />,
             Shield: (props) => <SVGIcon d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" {...props} />,
             Alert: (props) => <SVGIcon d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z M12 9v4 M12 17h.01" {...props} />,
@@ -145,21 +146,17 @@
                 return () => clearInterval(interval);
             }, []);
 
-            const analyze = async (textOverride) => {
-                const textToSend = typeof textOverride === 'string' ? textOverride : input;
-
-                if (!textToSend || !textToSend.trim()) return;
-                
+            const analyze = async () => {
+                if (!input.trim()) return;
                 setLoading(true);
                 setError(null);
                 setResult(null);
 
                 try {
-                    // RUTA RELATIVA CORRECTA
                     const response = await fetch('/api/analyze', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: textToSend })
+                        body: JSON.stringify({ text: input })
                     });
 
                     if (!response.ok) throw new Error("CONNECTION_REFUSED: SERVER_ERROR");
@@ -216,7 +213,7 @@
                         <textarea 
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder="Ingrese datos del caso..."
+                            placeholder="Ingrese datos del caso para análisis..."
                             className="w-full bg-transparent text-[#00FF41] p-6 pt-8 outline-none min-h-[150px] text-xl font-mono border-none focus:ring-0 resize-none placeholder-green-900"
                         />
                         
@@ -245,7 +242,7 @@
                         <div className={`matrix-border bg-black p-6 mt-4 animate-fade-in ${getSeverityStyle(result.Categoria_Legal)}`}>
                             <div className="flex justify-between items-end border-b border-current pb-2 mb-4">
                                 <h2 className="text-3xl font-bold uppercase">{result.Categoria_Legal}</h2>
-                                <span className="text-xs opacity-50">PID: {Math.floor(Math.random() * 99999)}</span>
+                                <span className="text-xs opacity-50">PID: {Math.floor(Math.random() * 100000)}</span>
                             </div>
 
                             <div className="grid md:grid-cols-2 gap-8">
