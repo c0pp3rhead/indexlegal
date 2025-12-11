@@ -89,10 +89,7 @@ async function analyzeWithGemini(text) {
 // --- FUNCIÓN MEJORADA: Consultar LawCrawler Local ---
 async function searchLocalLaws(query) {
     try {
-        // FIX: Usamos solo la primera palabra clave para garantizar resultados
-        // Ej: "HOMICIDIO SIMPLE" -> busca "HOMICIDIO"
         const cleanQuery = query.split(' ')[0].trim(); 
-        
         console.log(`[LAWCRAWLER] Buscando evidencia para: "${cleanQuery}"...`);
         
         const response = await fetch(`${PYTHON_API_URL}/search?q=${encodeURIComponent(cleanQuery)}`);
@@ -103,11 +100,26 @@ async function searchLocalLaws(query) {
         }
         
         const data = await response.json();
-        const resultados = data.resultados || [];
+        let resultados = data.resultados || [];
         
-        // LOG NUEVO: Confirmar cuántas encontró
-        console.log(`[LAWCRAWLER] ¡Éxito! Se encontraron ${resultados.length} leyes.`);
-        
+        // --- LOGIC NUEVA: ORDENAMIENTO CRONOLÓGICO ---
+        resultados = resultados.sort((a, b) => {
+            // Función para extraer año del título
+            const getYear = (title) => {
+                // Busca años entre 1800 y 2099
+                const match = title && title.match(/\b(18|19|20)\d{2}\b/);
+                // Si no tiene año, asumimos que es VIGENTE (le damos año 9999 para que salga primero)
+                return match ? parseInt(match[0]) : 9999;
+            };
+
+            const yearA = getYear(a.TITULO);
+            const yearB = getYear(b.TITULO);
+
+            // Ordenar descendente (Mayor a menor)
+            return yearB - yearA; 
+        });
+
+        console.log(`[LAWCRAWLER] ¡Éxito! Se encontraron ${resultados.length} leyes (Ordenadas por fecha).`);
         return resultados; 
     } catch (e) {
         console.error(`[LAWCRAWLER ERROR] Fallo de conexión: ${e.message}`);
