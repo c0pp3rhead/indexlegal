@@ -17,7 +17,7 @@ import { fileURLToPath } from 'url';
 // --- CONFIGURACIÓN ---
 const app = express();
 const PORT = process.env.PORT || 3000;
-const PYTHON_API_URL = process.env.PYTHON_API_URL || 'http://127.0.0.1:8000';
+const PYTHON_API_URL = process.env.PYTHON_API_URL || 'https://lawcrawler-api-production.up.railway.app';
 
 app.use(cors());
 app.use(express.json());
