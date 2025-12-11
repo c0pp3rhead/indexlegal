@@ -86,10 +86,13 @@ async function analyzeWithGemini(text) {
     return JSON.parse(jsonText.replace(/^```json\n/, '').replace(/\n```$/, ''));
 }
 
-// --- FUNCIÓN: Consultar LawCrawler Local ---
+// --- FUNCIÓN MEJORADA: Consultar LawCrawler Local ---
 async function searchLocalLaws(query) {
     try {
-        const cleanQuery = query.split('(')[0].trim(); 
+        // FIX: Usamos solo la primera palabra clave para garantizar resultados
+        // Ej: "HOMICIDIO SIMPLE" -> busca "HOMICIDIO"
+        const cleanQuery = query.split(' ')[0].trim(); 
+        
         console.log(`[LAWCRAWLER] Buscando evidencia para: "${cleanQuery}"...`);
         
         const response = await fetch(`${PYTHON_API_URL}/search?q=${encodeURIComponent(cleanQuery)}`);
@@ -100,9 +103,14 @@ async function searchLocalLaws(query) {
         }
         
         const data = await response.json();
-        return data.resultados || []; 
+        const resultados = data.resultados || [];
+        
+        // LOG NUEVO: Confirmar cuántas encontró
+        console.log(`[LAWCRAWLER] ¡Éxito! Se encontraron ${resultados.length} leyes.`);
+        
+        return resultados; 
     } catch (e) {
-        console.error(`[LAWCRAWLER ERROR] ¿Está corriendo api.py? Detalle: ${e.message}`);
+        console.error(`[LAWCRAWLER ERROR] Fallo de conexión: ${e.message}`);
         return []; 
     }
 }
