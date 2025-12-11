@@ -5,17 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SYSTEM_ROOT // INDEX_PENAL</title>
     
-    <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Fuente Hacker -->
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
     <style>
@@ -76,6 +72,9 @@
 
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .cursor-blink { animation: blink 1s step-end infinite; }
+        
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
     </style>
 </head>
 <body>
@@ -83,47 +82,108 @@
     <div id="root" class="relative z-10 w-full h-full overflow-auto"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect } = React;
         const { createRoot } = ReactDOM;
 
-        // --- ÍCONOS SVG INTEGRADOS ---
+        // --- ICONOS ---
         const SVGIcon = ({ size = 24, color = 'currentColor', d, className, ...props }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
                 <path d={d} />
             </svg>
         );
         
-        // Mapeo de Íconos
         const Icons = {
-            // Eliminado Micrófono
-            Send: (props) => <SVGIcon d="M22 2 11 13 M22 2l-7 20-4-9-9-4 20-7z" {...props} />,
+            Cpu: (props) => <SVGIcon d="M18 10h-1a3 3 0 00-3-3v-1 M6 10h1a3 3 0 013-3v-1 M18 14h-1a3 3 0 01-3 3v1 M6 14h1a3 3 0 003 3v1 M12 2v2M12 20v2M20 12h2M2 12h2M14 14h-4v-4h4v4z" {...props} />,
             Shield: (props) => <SVGIcon d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" {...props} />,
             Alert: (props) => <SVGIcon d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z M12 9v4 M12 17h.01" {...props} />,
-            Terminal: (props) => <SVGIcon d="m4 17 6-6-6-6 M12 19h8" {...props} />,
-            Cpu: (props) => <SVGIcon d="M18 10h-1a3 3 0 00-3-3v-1 M6 10h1a3 3 0 013-3v-1 M18 14h-1a3 3 0 01-3 3v1 M6 14h1a3 3 0 003 3v1 M12 2v2M12 20v2M20 12h2M2 12h2M14 14h-4v-4h4v4z" {...props} />,
-            Search: (props) => <SVGIcon d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" {...props} />,
-            Activity: (props) => <SVGIcon d="M22 12h-4l-3 9L9 3l-6 9H2" {...props} />,
             BookOpen: (props) => <SVGIcon d="M2 13h6 M2 17h6 M16 13h6 M16 17h6 M10 4v16a2 2 0 002 2h0a2 2 0 002-2V4" {...props} />,
-            Lock: (props) => <SVGIcon d="M12 11V6a4 4 0 00-8 0v5 M3 13h18a1 1 0 011 1v6a2 2 0 01-2 2H4a2 2 0 01-2-2v-6a1 1 0 011-1z" {...props} />
+            Close: (props) => <SVGIcon d="M18 6 6 18 M6 6l12 12" {...props} />
         };
 
+        // --- COMPONENTE MODAL (VENTANA EMERGENTE) ---
+        const LawModal = ({ lawId, onClose }) => {
+            const [content, setContent] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const fetchLaw = async () => {
+                    try {
+                        // Usamos ruta relativa '/api/...' para conectar al Proxy de Node.js
+                        const res = await fetch(`/api/law/${lawId}`);
+                        
+                        if (!res.ok) throw new Error("Error fetching law");
+                        const data = await res.json();
+                        setContent(data);
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                fetchLaw();
+            }, [lawId]);
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fade-in">
+                    <div className="w-full max-w-4xl bg-black border border-[#00FF41] shadow-[0_0_50px_rgba(0,255,65,0.2)] max-h-[80vh] flex flex-col relative">
+                        
+                        {/* Header Modal */}
+                        <div className="border-b border-[#00FF41] p-4 flex justify-between items-center bg-[#001000]">
+                            <h3 className="text-[#00FF41] font-bold text-lg truncate pr-4">
+                                {loading ? "RETRIEVING DATA..." : (content?.TITULO || "DOCUMENTO LEGAL")}
+                            </h3>
+                            <button onClick={onClose} className="hover:text-white transition-colors">
+                                <Icons.Close className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 overflow-y-auto font-mono text-sm leading-relaxed text-gray-300">
+                            {loading ? (
+                                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                    <Icons.Cpu className="w-10 h-10 animate-spin text-[#00FF41]" />
+                                    <span className="animate-pulse">DECRYPTING SECURE FILE...</span>
+                                </div>
+                            ) : (
+                                content ? (
+                                    <div className="whitespace-pre-wrap">
+                                        {/* Metadatos */}
+                                        <div className="flex gap-4 mb-6 text-xs uppercase tracking-widest opacity-60">
+                                            <span className="border border-[#00FF41] px-2 py-1">{content.ORIGEN}</span>
+                                            <span className="border border-[#00FF41] px-2 py-1">{content.CLASIFICACION}</span>
+                                        </div>
+                                        {/* Texto completo */}
+                                        {content.TEXTO_LIMPIO}
+                                    </div>
+                                ) : (
+                                    <div className="text-red-500">ERROR: DATA CORRUPTED OR NOT FOUND.</div>
+                                )
+                            )}
+                        </div>
+                        
+                        {/* Footer Modal */}
+                        <div className="border-t border-[#00FF41] p-2 text-right text-[10px] opacity-50 bg-black">
+                             SECURE VIEWER // INDEX_PENAL v2.4
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- APP PRINCIPAL ---
         const App = () => {
             const [input, setInput] = useState('');
             const [result, setResult] = useState(null);
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState(null);
             const [bootText, setBootText] = useState('');
+            
+            // Estado para el modal
+            const [selectedLawId, setSelectedLawId] = useState(null);
 
             useEffect(() => {
-                const lines = [
-                    "INITIALIZING INDEX_PENAL KERNEL...",
-                    "LOADING NEURAL MODULES...",
-                    "CONNECTING TO MAINFRAME...",
-                    "ACCESS GRANTED."
-                ];
-                let currentLine = 0;
-                let currentChar = 0;
-                
+                const lines = ["INITIALIZING INDEX_PENAL...", "CONNECTING TO MAINFRAME...", "ACCESS GRANTED."];
+                let currentLine = 0; let currentChar = 0;
                 const interval = setInterval(() => {
                     if (currentLine < lines.length) {
                         if (currentChar < lines[currentLine].length) {
@@ -134,156 +194,114 @@
                             });
                             currentChar++;
                         } else {
-                            setBootText(prev => prev + '\n');
-                            currentLine++;
-                            currentChar = 0;
+                            setBootText(prev => prev + '\n'); currentLine++; currentChar = 0;
                         }
-                    } else {
-                        clearInterval(interval);
-                    }
+                    } else clearInterval(interval);
                 }, 30);
-
                 return () => clearInterval(interval);
             }, []);
 
             const analyze = async () => {
                 if (!input.trim()) return;
-                setLoading(true);
-                setError(null);
-                setResult(null);
-
+                setLoading(true); setError(null); setResult(null);
                 try {
+                    // Usamos ruta relativa '/api/analyze'
                     const response = await fetch('/api/analyze', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ text: input })
                     });
-
-                    if (!response.ok) throw new Error("CONNECTION_REFUSED: SERVER_ERROR");
+                    if (!response.ok) throw new Error("CONNECTION_REFUSED");
                     const data = await response.json();
                     setResult(data);
-                } catch (err) {
-                    console.error(err);
-                    setError(err.message || "UNEXPECTED_RUNTIME_FAILURE");
-                } finally {
-                    setLoading(false);
-                }
+                } catch (err) { setError(err.message); } finally { setLoading(false); }
             };
 
             const getSeverityStyle = (cat) => {
                 if (!cat) return 'border-green-500 text-green-500';
                 const c = cat.toLowerCase();
-                if (c.includes('calumnia') || c.includes('sexual') || c.includes('grave') || c.includes('amenaza')) 
-                    return 'border-red-600 text-red-500 shadow-[0_0_15px_red]';
-                if (c.includes('injuria') || c.includes('delito')) 
-                    return 'border-yellow-500 text-yellow-500';
+                if (c.includes('amenaza') || c.includes('homicidio') || c.includes('sexual')) return 'border-red-600 text-red-500 shadow-[0_0_15px_red]';
                 return 'border-[#00FF41] text-[#00FF41]';
             };
 
             return (
-                <div className="min-h-screen flex flex-col p-4 md:p-8 max-w-5xl mx-auto gap-6">
+                <div className="min-h-screen flex flex-col p-4 md:p-8 max-w-5xl mx-auto gap-6 relative">
                     
-                    {/* Header Terminal */}
+                    {/* Renderizamos el Modal si hay una ley seleccionada */}
+                    {selectedLawId && <LawModal lawId={selectedLawId} onClose={() => setSelectedLawId(null)} />}
+
+                    {/* Header */}
                     <div className="w-full border-b border-[#00FF41] pb-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs opacity-70">root@indexpenal:~# ./run_analysis.sh</span>
-                            <span className="text-xs animate-pulse">● LIVE</span>
-                        </div>
-                        <div className="font-mono text-sm whitespace-pre-line min-h-[80px] opacity-80 mb-4">
-                            {bootText}<span className="cursor-blink">_</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <span className="text-4xl font-bold text-[#00FF41] matrix-glow">{'>_'}</span>
-                                <div>
-                                    <h1 className="text-4xl md:text-6xl font-bold matrix-glow tracking-tighter">
-                                        INDEX_PENAL
-                                    </h1>
-                                    <p className="text-sm tracking-widest opacity-70">NEURAL PENAL SYSTEM v2.4</p>
-                                </div>
-                            </div>
-                        </div>
+                        <div className="font-mono text-sm whitespace-pre-line min-h-[60px] opacity-80 mb-4">{bootText}</div>
+                        <h1 className="text-4xl md:text-6xl font-bold matrix-glow tracking-tighter text-[#00FF41]">INDEX_PENAL</h1>
                     </div>
 
-                    {/* Input Area */}
+                    {/* Input */}
                     <div className="matrix-border bg-black/80 p-1 relative">
-                        <div className="absolute top-0 left-0 bg-[#00FF41] text-black text-xs px-2 font-bold uppercase">
-                            Input_Stream
-                        </div>
-                        <textarea 
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder="Ingrese datos del caso para análisis..."
-                            className="w-full bg-transparent text-[#00FF41] p-6 pt-8 outline-none min-h-[150px] text-xl font-mono border-none focus:ring-0 resize-none placeholder-green-900"
-                        />
-                        
-                        <div className="flex justify-end gap-3 p-3 border-t border-[#003B00] bg-black">
-                            <button 
-                                onClick={() => analyze()} 
-                                disabled={loading || !input}
-                                className="matrix-btn px-8 py-2 font-bold flex items-center gap-2 transition-all disabled:opacity-30 disabled:cursor-not-allowed w-full justify-center sm:w-auto"
-                            >
-                                {loading ? <span className="animate-spin">/</span> : <Icons.Cpu className="w-5 h-5" />}
+                        <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ingrese datos..." className="w-full bg-transparent text-[#00FF41] p-6 text-xl font-mono border-none focus:ring-0 resize-none min-h-[150px]" />
+                        <div className="flex justify-end p-3 border-t border-[#003B00] bg-black">
+                            <button onClick={analyze} disabled={loading || !input} className="matrix-btn px-8 py-2 font-bold flex items-center gap-2 w-full justify-center sm:w-auto">
                                 {loading ? "PROCESSING..." : "EXECUTE"}
                             </button>
                         </div>
                     </div>
 
                     {/* Error */}
-                    {error && (
-                        <div className="border border-red-500 bg-red-900/20 p-4 text-red-500 font-bold flex items-center gap-3">
-                            <Icons.Alert className="w-5 h-5" /> 
-                            <span>[SYSTEM_ERROR]: {error}</span>
-                        </div>
-                    )}
+                    {error && <div className="border border-red-500 text-red-500 p-4 font-bold">[SYSTEM_ERROR]: {error}</div>}
 
                     {/* Resultados */}
                     {result && (
                         <div className={`matrix-border bg-black p-6 mt-4 animate-fade-in ${getSeverityStyle(result.Categoria_Legal)}`}>
-                            <div className="flex justify-between items-end border-b border-current pb-2 mb-4">
-                                <h2 className="text-3xl font-bold uppercase">{result.Categoria_Legal}</h2>
-                                <span className="text-xs opacity-50">PID: {Math.floor(Math.random() * 100000)}</span>
-                            </div>
-
+                            <h2 className="text-3xl font-bold uppercase mb-4 border-b border-current pb-2">{result.Categoria_Legal}</h2>
+                            
                             <div className="grid md:grid-cols-2 gap-8">
                                 <div>
-                                    <label className="text-xs opacity-60 block mb-1">> INPUT_DATA:</label>
-                                    <p className="text-lg italic opacity-90 border-l-2 border-current pl-3 mb-4">
-                                        "{result.Frase_Original}"
-                                    </p>
-                                    
-                                    <label className="text-xs opacity-60 block mb-1">> LEGAL_CODE</label>
-                                    <div className="border border-current p-2 mb-4">
-                                        <p className="text-xl font-bold flex items-center gap-2">
-                                            <Icons.BookOpen className="w-5 h-5" /> {result.Articulo_CR}
-                                        </p>
-                                    </div>
+                                    <label className="text-xs opacity-60 block">> INPUT:</label>
+                                    <p className="italic opacity-90 border-l-2 border-current pl-3 mb-4">"{result.Frase_Original}"</p>
+                                    <label className="text-xs opacity-60 block">> ARTICULO:</label>
+                                    <p className="text-xl font-bold">{result.Articulo_CR}</p>
                                 </div>
-
                                 <div>
-                                    <label className="text-xs opacity-60 block mb-1">> PENALTY_ESTIMATE</label>
-                                    <div className="border border-current p-2 mb-4 bg-[#001000]">
-                                        <p className="text-lg font-bold flex items-center gap-2">
-                                            <Icons.Alert className="w-5 h-5" /> {result.Penalidad_Estimada}
-                                        </p>
-                                    </div>
-
-                                    <label className="text-xs opacity-60 block mb-1">> ANALYSIS_LOG</label>
-                                    <p className="opacity-90 font-mono text-sm leading-relaxed">
-                                        {result.Detalles_Deteccion}
-                                    </p>
+                                    <label className="text-xs opacity-60 block">> PENALIDAD:</label>
+                                    <p className="text-lg font-bold bg-[#001000] p-2 mb-4 border border-current">{result.Penalidad_Estimada}</p>
+                                    <label className="text-xs opacity-60 block">> ANALISIS:</label>
+                                    <p className="font-mono text-sm">{result.Detalles_Deteccion}</p>
                                 </div>
                             </div>
+
+                            {/* --- LISTA DE LEYES CLICKABLES --- */}
+                            {result.Evidencia_Crawler && result.Evidencia_Crawler.length > 0 && (
+                                <div className="mt-8 border-t border-[#003B00] pt-6">
+                                    <div className="flex items-center gap-2 mb-4 opacity-80">
+                                        <Icons.Shield className="w-5 h-5 text-[#00FF41]" />
+                                        <h3 className="text-sm font-bold tracking-widest">EVIDENCIA VINCULADA (CLICK TO ACCESS)</h3>
+                                    </div>
+                                    <div className="grid gap-3">
+                                        {result.Evidencia_Crawler.map((ley, idx) => (
+                                            <div 
+                                                key={idx} 
+                                                onClick={() => setSelectedLawId(ley.ID_NORMA)} 
+                                                className="bg-[#001000] border border-[#00FF41]/30 p-3 hover:border-[#00FF41] hover:bg-[#002000] transition-all cursor-pointer group relative"
+                                            >
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <h4 className="text-[#00FF41] font-bold text-sm group-hover:underline">
+                                                        {ley.TITULO || "Norma Sin Título"}
+                                                    </h4>
+                                                    <span className="text-[10px] bg-[#003B00] px-2 py-0.5 text-[#00FF41]/70 border border-[#00FF41]/20">
+                                                        VER ARCHIVO
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-gray-400 font-mono leading-relaxed" dangerouslySetInnerHTML={{ __html: '...' + ley.FRAGMENTO + '...' }} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
-                    
-                    <div className="text-center text-[10px] opacity-30 mt-8">
-                        SECURE CONNECTION // ENCRYPTED // INDEX_PENAL SYSTEM
-                    </div>
                 </div>
             );
         };
-
         const root = createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
