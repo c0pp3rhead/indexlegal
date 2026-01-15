@@ -7,7 +7,10 @@ import 'dotenv/config';
 import fetch from 'node-fetch';
 import * as readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-import * as admin from 'firebase-admin'; // NUEVA DEPENDENCIA: Firebase Admin
+
+// Importar funciones específicas de Firebase Admin (Modular)
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 // Importar 'fs' y 'path' para leer el JSON de forma segura
 import fs from 'fs';
@@ -15,29 +18,33 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // --- FIREBASE CONFIGURATION (Requires service key file) ---
+let db = null;
 
 try {
-  // CORRECCIÓN: Usar 'fs' (File System) para leer el archivo JSON
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
   const SERVICE_ACCOUNT_PATH = path.join(__dirname, 'honoris-key.json');
   
-  // Verificar si existe el archivo antes de leerlo para evitar crash feo
+  // Verificar si existe el archivo antes de leerlo
   if (fs.existsSync(SERVICE_ACCOUNT_PATH)) {
       const serviceAccountRaw = fs.readFileSync(SERVICE_ACCOUNT_PATH);
       const serviceAccount = JSON.parse(serviceAccountRaw);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
+
+      // CORRECCIÓN: Usar getApps() para verificar si ya está inicializada
+      if (getApps().length === 0) {
+        initializeApp({
+            credential: cert(serviceAccount)
+        });
+      }
+      
+      db = getFirestore();
+      console.log("[STATUS] Integración con Firestore ACTIVA.");
   } else {
       console.warn("[ADVERTENCIA] No se encontró 'honoris-key.json'. El guardado en base de datos estará desactivado.");
   }
 } catch (e) {
   console.error(`[ADVERTENCIA] Error iniciando Firebase: ${e.message}`);
 }
-
-// Obtener instancia de Firestore solo si Firebase se inició correctamente
-const db = admin.apps.length ? admin.firestore() : null;
 
 // --- GEMINI CONFIGURATION ---
 const API_MODEL = 'gemini-2.5-flash'; 
@@ -52,7 +59,6 @@ if (!API_KEY) {
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent?key=${API_KEY}`;
 
 // --- COSTA RICAN LEGAL RULES (System Instruction for Gemini) ---
-// ACTUALIZACIÓN MAYOR: Alcance ampliado para clasificar CUALQUIER delito basado en descripción.
 const SYSTEM_INSTRUCTION_TEXT = `
 Actúa como un experto penalista y asesor legal en Costa Rica. Tu tarea es analizar el texto proporcionado por el usuario. Este texto puede ser una frase ofensiva (insulto) O una descripción narrativa de una situación de hecho.
 
@@ -101,7 +107,7 @@ IMPORTANTE: Responde SOLO con el JSON. No uses bloques de código markdown (\`\`
 `;
 
 // --- Analysis Function (Gemini API Call) ---
-async function analyze(textToAnalyze) {
+async function analyze(textToAnalyze, formattedDate) {
   try {
     const payload = {
       systemInstruction: {
@@ -148,11 +154,10 @@ async function analyze(textToAnalyze) {
     const jsonText = jsonResponse.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (jsonText) {
-      // Limpieza extra por si el modelo ignora la instrucción de no usar markdown
       const cleanJsonText = jsonText.replace(/^```json\n/, '').replace(/\n```$/, '');
       const result = JSON.parse(cleanJsonText);
       
-      await saveAnalysis(result);
+      await saveAnalysis(result, formattedDate);
       
       return result;
     } else {
@@ -165,19 +170,20 @@ async function analyze(textToAnalyze) {
 }
 
 // --- Función: Guardar en Firestore ---
-async function saveAnalysis(analysisResult) {
-  if (!db) return; // Si no hay DB configurada, no hacer nada
+async function saveAnalysis(analysisResult, formattedDate) {
+  if (!db) return; 
 
   try {
     const docToSave = {
         ...analysisResult,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        searchDate: new Date().toISOString(),
+        timestamp: FieldValue.serverTimestamp(), // Usar FieldValue importado
+        searchDateString: formattedDate, 
+        searchDateISO: new Date().toISOString(), 
         userId: 'terminal-user',
     };
 
     const docRef = await db.collection('legal_analysis_logs').add(docToSave);
-    console.log(`[LOG] Análisis guardado en Firestore con ID: ${docRef.id}`);
+    console.log(`[LOG] Análisis guardado en Firestore con ID: ${docRef.id} | Fecha: ${formattedDate}`);
   } catch (e) {
     console.error(`[ERROR] Fallo al guardar en Firestore: ${e.message}`);
   }
@@ -194,7 +200,7 @@ async function main() {
   console.log("Escriba 'exit' o presione Ctrl+C para salir.");
 
   if (db) {
-      console.log("[STATUS] Integración con Firestore: ACTIVA.");
+      // Ya se imprimió mensaje en bloque try/catch
   } else {
       console.log("[STATUS] Integración con Firestore: INACTIVA (Modo local).");
   }
@@ -215,10 +221,12 @@ async function main() {
 
     console.log(`[FECHA/HORA BÚSQUEDA]: ${formattedDate}`);
     console.log("\nAnalizando con Gemini... \n");
-    const result = await analyze(userInput);
+    
+    const result = await analyze(userInput, formattedDate);
 
     if (result) {
       console.log("--- ANÁLISIS LEGAL ---");
+      console.log(`Fecha/Hora: \t\t${formattedDate}`);
       console.log(`Frase/Hecho: \t\t${result.Frase_Original}`);
       console.log(`Categoría Legal: \t${result.Categoria_Legal}`);
       console.log(`Normativa: \t\t${result.Articulo_CR}`);
